@@ -41,7 +41,7 @@ function addUserToRoom(user, socket){
 
     if(rooms.length === 0 || roomInUse === undefined){
         
-        if(user.room === null){
+        if(user.RoomId === null){
             room.createRoom(user);
             rooms.push(room);
             socket.join(room.id);

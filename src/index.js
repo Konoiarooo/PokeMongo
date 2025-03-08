@@ -1,4 +1,5 @@
 const getPokemonUrl = id => `https://pokeapi.co/api/v2/pokemon/${id}`;
+let socket;
 const pokemonTester = (index) => {
     return {
         name: "Poke Teste",
@@ -24,6 +25,7 @@ const pokemonTester = (index) => {
 }
 
 let userName = null;
+let myUserId = Math.random() * 100;
 
 const listPokemonsInBoard = Array(150);
 const pokemonsChoseds = Array();
@@ -32,6 +34,13 @@ const pokeSelectModal = {
     modalOpen: false,
     comfirm: false
 };
+
+const pokemonToFight = {
+    hasOneChosed: false,
+    chosedNow: null,
+    chosedBefore: null,
+    pokemonChosed: null
+}
 
 function login(){
     const main = document.getElementsByTagName('main')[0];
@@ -74,7 +83,7 @@ const generateHtml = pokemons => pokemons?.reduce((accumulator, { name, id, type
     <div class="poke-card ${elementType[0]}">
         <img id="poke-card-img-${id}" alt="${name}" src="${sprites?.front_default}" />
         <div class="poke-card-description">
-            <span>${id} - ${name}</span>
+            <span>${name.charAt(0).toUpperCase() + name.slice(1)}</span>
             <span class="poke-card-desc-type">${elementType?.join(' | ')}</span>
         </div>
     </div>
@@ -124,7 +133,7 @@ function chosePokemon(index, pokeCard){
 
 const pokeInBagCardHtml = () => pokemonsChoseds?.map(({ name, id, sprites }) => {
     const cards = `
-        <div style="width:130px; height:180px; margin: 0.4rem; padding: 0.3rem; display:inline-flex; justify-content:center; flex-direction: column;">
+        <div id="poke-card-${id}" onclick="selectFirstPokemon(${id})" style="min-width:80px; min-height:80px; margin: 0.4rem; padding: 0.3rem; display:inline-flex; justify-content:end; flex-direction: column; filter: brightness(0.6);">
             <img id="poke-card-img-${id}" alt="${name}" src="${sprites['versions']['generation-v']['black-white']['animated']['front_default']}"/>
         </div>
     `;
@@ -135,11 +144,11 @@ const pokeInBagCardHtml = () => pokemonsChoseds?.map(({ name, id, sprites }) => 
 const modalPokeBagHtml = () => {
     
     return `
-    <div id="pokeBag-removeModal" style="background-color: #6c84933a; width: 100vw; height: 100vh; position: absolute; display: flex; justify-content: center; align-items: center;">
-        <div style="box-shadow: var(--box-shadow); border-radius: 0.2rem; background-color: #fff; padding: 0.6rem; margin: 0.6rem; z-index: 10;">
-            <div id="pokeBag-selection" style="display:inline-flex; justify-content: space-evenly; flex-wrap: wrap;">
+    <div id="pokeBag-removeModal">
+        <div style="box-shadow: var(--box-shadow); border-radius: 0.2rem; background-color: #fff; padding: 0.6rem; margin: 0.6rem;">
+            <div id="pokeBag-selection" style="cursor: pointer; display:inline-flex; justify-content: space-evenly; flex-wrap: wrap;">
             </div>
-            <div style="display: flex; justify-content: space-evenly;">
+            <div style="display: flex; justify-content: space-evenly; padding-top: 30px;">
                 <button onclick="modalEvent('confirm')" style="background-color:#2980D6; color:#F2F7FD;">CONFIRMAR</button>
                 <button onclick="modalEvent('cancel')" style="background-color:#2980D6; color:#F2F7FD;">CANCELAR</button>
             </div>
@@ -148,12 +157,26 @@ const modalPokeBagHtml = () => {
     `;
 }
 
+const selectFirstPokemon = (pokemonId) => {
+    const selectedCardElement = document.getElementById(`poke-card-${pokemonId}`)
+    selectedCardElement.style.filter = "brightness(1)";
+    pokemonToFight.chosedNow = selectedCardElement;
+    pokemonToFight.hasOneChosed = true;
+    pokemonToFight.pokemonChosed = pokemonsChoseds.find(x => x.id === pokemonId)
+
+    if(pokemonToFight.chosedBefore !== null && pokemonToFight.chosedBefore !== pokemonToFight.chosedNow){
+        pokemonToFight.chosedBefore.style.filter = "brightness(0.6)";
+    }
+
+    pokemonToFight.chosedBefore = pokemonToFight.chosedNow;
+}
+
 const modalEvent = (event) => {
     const mainContainer = document.getElementById('main-container');
     const selection = mainContainer.getElementsByClassName('poke-select')[0];
     const removeModal = document.getElementById('pokeBag-removeModal');
         
-    if(event === 'confirm'){
+    if(event === 'confirm' && pokemonToFight.hasOneChosed){
         pokeSelectModal.comfirm = true;
         pokeSelectModal.modalOpen = false;
         selection.remove();
@@ -162,9 +185,15 @@ const modalEvent = (event) => {
     else if(event === 'cancel'){
         pokeSelectModal.comfirm = false;
         pokeSelectModal.modalOpen = false;
+
+        pokemonToFight.chosedBefore = null;
+        pokemonToFight.chosedNow = null;
+        pokemonToFight.hasOneChosed = false;
         
         pokemonsChoseds.splice(0,[5])
     }
+
+    if(!pokemonToFight.hasOneChosed && event !== 'cancel') return;
 
     removeModal.remove();
 
@@ -184,11 +213,10 @@ Promise.all(pokemonsPromise)
 .then(insertPokemonsIntoPage);
 
 //*******************************************Game start*************************************************
-const socket = io.connect();
 
 function gameStart(){
-
-    if(pokemonsChoseds.length === 5){
+    socket = io.connect();
+    if(pokemonToFight.hasOneChosed){
         const mainContainer = document.getElementById('main-container');
         const loadingHtml = '<div style="width:100%;height:100%;display:flex;justify-content:center;align-items:center;"><div class="loading">SEACHING PLAYERS</div></div>';
         
@@ -202,41 +230,46 @@ function gameStart(){
 
 function awaitOponent(){
     const user = { 
-        name: userName,
-        room: null, 
-        pokemons: [pokemonsChoseds[0]]
+        Id: myUserId,
+        Name: userName,
+        RoomId: null, 
+        FirstPokemon: pokemonToFight.pokemonChosed,
+        PokemonsIdInBag: pokemonsChoseds.map((x) => x.id)
     };
+
+    const a = new User();
+    console.log(a)
 
     socket.emit('seach_game', user);
     socket.emit('start_game');
     insertGameCanvas();
 }
 
-const gameCanvasHtml = (enemyFrontDefault, enemyPoke) => {
+const gameCanvasHtml = (enemyFrontDefault, enemyPoke, me) => {
     
-    const pokeChosedPlayer = pokemonsChoseds[0];
-    const playerBackDefault = pokeChosedPlayer['sprites']['versions']['generation-v']['black-white']['animated']['back_default'];
+    const pokeChosedPlayer = me.FirstPokemon;
+    const playerBackDefault = me.FirstPokemon['sprites']['versions']['generation-v']['black-white']['animated']['back_default'];
    
     return `
         <div id="game-canvas">
             <div class="enemy-canvas">
-            <div class="enemy-canvas-pokemon">
-                    <img src="${enemyFrontDefault}" />
-            </div>
-            <div class="canvas-status">
-                    <span>${enemyPoke.name.toLocaleUpperCase()}</span>
-                    <div class="canvas-hp"><div></div></div>
-            </div>
+                <div class="enemy-canvas-pokemon">
+                        <img src="${enemyFrontDefault}" />
+                </div>
+                <div class="canvas-status">
+                        <span>${enemyPoke.name.toLocaleUpperCase()}</span>
+                        <div class="canvas-hp"><div></div></div>
+                </div>
             </div>
             <div class="player-canvas">
-            <div class="player-canvas-pokemon">
-                    <img src="${playerBackDefault}" />
-            </div>
-            <div class="canvas-status">
-                    <span>${pokeChosedPlayer.name.toLocaleUpperCase()}</span>
-                    <div class="canvas-hp"><div></div></div>
-                    <span> 10/10 </span>
-            </div>
+                <div class="player-canvas-pokemon">
+                        <img src="${playerBackDefault}" />
+                </div>
+                <div class="canvas-status">
+                        <span>YOU ${pokeChosedPlayer.name.toLocaleUpperCase()}</span>
+                        <div class="canvas-hp"><div></div></div>
+                        <span> 10/10 </span>
+                </div>
             </div>
         </div>
         `;
@@ -244,16 +277,16 @@ const gameCanvasHtml = (enemyFrontDefault, enemyPoke) => {
     
 function insertGameCanvas(){
     socket.on('start_game', (users) => {
-        const enemyUser = users.find((user) => user.name !== userName);
-        const me = users.find((user) => user.name === userName);
+        const enemyUser = users.find((user) => user.Id !== myUserId);
+        const me = users.find((user) => user.Id === myUserId);
 
-        const enemyFrontDefault = enemyUser['pokemons'][0]['sprites']['versions']['generation-v']['black-white']['animated']['front_default'];
+        const enemyFrontDefault = enemyUser['FirstPokemon']['sprites']['versions']['generation-v']['black-white']['animated']['front_default'];
         const mainContainer = document.getElementById('main-container');
-        mainContainer.innerHTML =  gameCanvasHtml(enemyFrontDefault, enemyUser.pokemons[0]);
+        mainContainer.innerHTML =  gameCanvasHtml(enemyFrontDefault, enemyUser.FirstPokemon, me);
 
         const listPokeBattle = [];
-        listPokeBattle.push(me.pokemons[0]);
-        listPokeBattle.push(enemyUser.pokemons[0]);
+        listPokeBattle.push(me.FirstPokemon);
+        listPokeBattle.push(enemyUser.FirstPokemon);
 
         const firstPokeTurn = listPokeBattle.reduce((prev, current) => {
             return prev.stats[5]['base_stat'] > current.stats[5]['base_stat'] ? prev : current;
@@ -321,10 +354,10 @@ function passTurnEvent(){
 }
 
 function turnEvent(firstPokemon, users){
-    const userTurn = users.filter((x) => x.pokemons[0].id === firstPokemon.id);
+    const userTurn = users.find((x) => x.FirstPokemon.id === firstPokemon.id);
     const mainContainer = document.getElementById('main-container');
-    mainContainer.innerHTML += `<div style="top:15%;left:40%;position:absolute;display:flex;flex-direction:column;justify-content:center;align-items:center;"><span id="user-turn-name" style="font-size:2rem;font-family:'Inconsolata', monospace;">Turno: ${userTurn[0].name}</span></div>`;
-    switchTurnEvent(users, userTurn[0].name);
+    mainContainer.innerHTML += `<div style="top:15%;left:40%;position:absolute;display:flex;flex-direction:column;justify-content:center;align-items:center;"><span id="user-turn-name" style="font-size:2rem;font-family:'Inconsolata', monospace;">Turno: ${userTurn.Name}</span></div>`;
+    switchTurnEvent(users, userTurn.Name);
 }
 
 function switchTurnEvent(users, userTurn){
@@ -335,9 +368,9 @@ function switchTurnEvent(users, userTurn){
 function changeTurn(users, actualTurn){
     const interval = setInterval(( ) => {
         const spanUserName = document.getElementById('user-turn-name');
-        const { name } = users.find((x) => x.name !== actualTurn);
-        spanUserName.innerText = `Turno: ${name}`;
-        actualTurn = name;
+        const { Name } = users.find((x) => x.Name !== actualTurn);
+        spanUserName.innerText = `Turno: ${Name}`;
+        actualTurn = Name;
     }, 10000)
     
     if(passTurnEvent())

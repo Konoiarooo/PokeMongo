@@ -194,7 +194,7 @@ main div section div img{
     padding: 0.3rem;
 }
 div.poke-card-description{
-    font-size: 0.7rem;
+    font-size: 1rem;
     font-family: 'Inconsolata', monospace;
     display: inline-flex;
     justify-content: center;
@@ -202,7 +202,17 @@ div.poke-card-description{
     flex-direction: column;
 }
 span.poke-card-desc-type{
-    font-size: 1rem;
+    font-size: 0.8rem;
+}
+#pokeBag-removeModal{
+    background-color: #0000005e;
+    width: 100vw;
+    height: 100vh;
+    position: absolute; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+    z-index: 3;
 }
 button{
     padding: 0.2rem 0.4rem;
@@ -262,7 +272,6 @@ div.player-canvas{
     display: inline-flex;
     flex-direction: row;
     width: 100%;
-    float: bottom;
     justify-content: space-between;
     padding: 0.5rem;
     min-height: 200px;
@@ -300,8 +309,8 @@ div.enemy-canvas-pokemon{
     height: 200px;
 }
 div.enemy-canvas-pokemon img{
-    height: 11.3rem;
-    width: 12.3rem;
+    height: 8rem;
+    width: 8rem;
 } 
 div.canvas-status{
     align-self: center;
