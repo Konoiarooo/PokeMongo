@@ -237,9 +237,6 @@ function awaitOponent(){
         PokemonsIdInBag: pokemonsChoseds.map((x) => x.id)
     };
 
-    const a = new User();
-    console.log(a)
-
     socket.emit('seach_game', user);
     socket.emit('start_game');
     insertGameCanvas();
